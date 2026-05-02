@@ -53,6 +53,26 @@ public sealed class ExperimentMetricsRepository(IDbContextFactory<TrafficDbConte
             : await BuildMetricsAsync(dbContext, run, cancellationToken);
     }
 
+    public async Task<ExperimentRunComparison?> CompareRunsAsync(
+        Guid baselineRunId,
+        Guid candidateRunId,
+        CancellationToken cancellationToken)
+    {
+        var baseline = await GetMetricsAsync(baselineRunId, cancellationToken);
+        if (baseline is null)
+        {
+            return null;
+        }
+
+        var candidate = await GetMetricsAsync(candidateRunId, cancellationToken);
+        if (candidate is null)
+        {
+            return null;
+        }
+
+        return BuildComparison(baseline, candidate);
+    }
+
     private static async Task<ExperimentRunMetrics> BuildMetricsAsync(
         TrafficDbContext dbContext,
         ExperimentRunEntity run,
@@ -140,5 +160,62 @@ public sealed class ExperimentMetricsRepository(IDbContextFactory<TrafficDbConte
         }
 
         return latest;
+    }
+
+    private static ExperimentRunComparison BuildComparison(
+        ExperimentRunMetrics baseline,
+        ExperimentRunMetrics candidate)
+    {
+        return new ExperimentRunComparison(
+            baseline.RunId,
+            candidate.RunId,
+            baseline.Policy,
+            candidate.Policy,
+            baseline.Scenario,
+            candidate.Scenario,
+            ToComparisonMetrics(baseline),
+            ToComparisonMetrics(candidate),
+            candidate.AverageQueueLength - baseline.AverageQueueLength,
+            candidate.MaxQueueLength - baseline.MaxQueueLength,
+            candidate.TotalDepartures - baseline.TotalDepartures,
+            candidate.ServedVehicles - baseline.ServedVehicles,
+            CalculateLowerIsBetterImprovement(
+                baseline.AverageQueueLength,
+                candidate.AverageQueueLength),
+            CalculateLowerIsBetterImprovement(
+                baseline.MaxQueueLength,
+                candidate.MaxQueueLength),
+            CalculateHigherIsBetterImprovement(
+                baseline.ServedVehicles,
+                candidate.ServedVehicles));
+    }
+
+    private static ExperimentRunComparisonMetrics ToComparisonMetrics(ExperimentRunMetrics metrics)
+    {
+        return new ExperimentRunComparisonMetrics(
+            metrics.AverageQueueLength,
+            metrics.MaxQueueLength,
+            metrics.TotalArrivals,
+            metrics.TotalDepartures,
+            metrics.ServedVehicles,
+            metrics.DurationSeconds);
+    }
+
+    private static double? CalculateLowerIsBetterImprovement(
+        double baseline,
+        double candidate)
+    {
+        return baseline > 0
+            ? ((baseline - candidate) / baseline) * 100
+            : null;
+    }
+
+    private static double? CalculateHigherIsBetterImprovement(
+        long baseline,
+        long candidate)
+    {
+        return baseline > 0
+            ? ((candidate - baseline) / (double)baseline) * 100
+            : null;
     }
 }
