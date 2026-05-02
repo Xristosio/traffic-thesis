@@ -20,6 +20,18 @@ public sealed class LatestMeasurementStore : ILatestMeasurementStore
         return _measurements.Values.ToArray();
     }
 
+    public IReadOnlyCollection<TrafficMeasurement> GetLatestForIntersection(string intersectionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(intersectionId);
+
+        return _measurements.Values
+            .Where(measurement => string.Equals(
+                measurement.IntersectionId,
+                intersectionId,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
     public bool TryGetLatestForIntersection(
         string intersectionId,
         out TrafficMeasurement measurement)

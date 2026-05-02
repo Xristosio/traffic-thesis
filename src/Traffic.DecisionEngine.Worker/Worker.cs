@@ -1,6 +1,7 @@
 using Traffic.Application.Measurements;
 using Traffic.Application.Messaging;
 using Traffic.Application.Policies;
+using Traffic.Contracts.Enums;
 using Traffic.Contracts.Messages;
 
 namespace Traffic.DecisionEngine.Worker;
@@ -35,10 +36,17 @@ public class Worker : BackgroundService
             () => ConsumeMeasurementsAsync(stoppingToken),
             stoppingToken);
         var commandTask = Task.Run(
-            () => PublishFixedTimeCommandsAsync(stoppingToken),
+            () => PublishCommandsAsync(stoppingToken),
             stoppingToken);
 
-        await Task.WhenAll(consumeTask, commandTask);
+        try
+        {
+            await Task.WhenAll(consumeTask, commandTask);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Expected during host shutdown.
+        }
     }
 
     private async Task ConsumeMeasurementsAsync(CancellationToken stoppingToken)
@@ -63,32 +71,62 @@ public class Worker : BackgroundService
         }
     }
 
-    private async Task PublishFixedTimeCommandsAsync(CancellationToken stoppingToken)
+    private async Task PublishCommandsAsync(CancellationToken stoppingToken)
     {
-        if (!_scheduler.IsFixedTimeMode)
+        if (_scheduler.ActivePolicy is null)
         {
             _logger.LogInformation(
-                "Only FixedTime policy is currently implemented. Configured policy mode={PolicyMode}; command publishing is disabled.",
-                _scheduler.ConfiguredPolicyMode);
+                "{SchedulerDescription}",
+                _scheduler.Description);
             return;
         }
 
         _logger.LogInformation(
-            "FixedTime command publishing enabled. Phase duration={PhaseDurationSeconds} seconds.",
-            _scheduler.PhaseDuration.TotalSeconds);
+            "{SchedulerDescription}",
+            _scheduler.Description);
 
         using var timer = new PeriodicTimer(CommandCheckInterval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var commands = _scheduler.GetDueCommands(DateTimeOffset.UtcNow);
+            var scheduledCommands = _scheduler.GetDueCommands(DateTimeOffset.UtcNow);
 
-            foreach (var command in commands)
+            foreach (var scheduledCommand in scheduledCommands)
             {
-                await _commandPublisher.PublishAsync(command, stoppingToken);
+                LogScheduledCommand(scheduledCommand);
+
+                await _commandPublisher.PublishAsync(scheduledCommand.Command, stoppingToken);
             }
 
             await timer.WaitForNextTickAsync(stoppingToken);
         }
+    }
+
+    private void LogScheduledCommand(ScheduledSignalDecisionCommand scheduledCommand)
+    {
+        var command = scheduledCommand.Command;
+
+        if (command.Policy is not PolicyMode.LongestQueueFirst)
+        {
+            return;
+        }
+
+        if (scheduledCommand.IsFairnessSwitch)
+        {
+            _logger.LogInformation(
+                "LQF fairness switch: intersection={IntersectionId} from={PreviousSignalId} to={SelectedSignalId} reason={Reason}",
+                command.IntersectionId,
+                scheduledCommand.PreviousSignalId ?? "none",
+                command.SelectedSignalId,
+                scheduledCommand.Reason);
+            return;
+        }
+
+        _logger.LogInformation(
+            "LQF decision: intersection={IntersectionId} selectedSignal={SelectedSignalId} queue={QueueLength} reason={Reason}",
+            command.IntersectionId,
+            command.SelectedSignalId,
+            scheduledCommand.SelectedQueueLength,
+            scheduledCommand.Reason);
     }
 }
