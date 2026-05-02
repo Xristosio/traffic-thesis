@@ -251,6 +251,41 @@ For an unbalanced experiment:
 
 Unknown scenario names fail at Producer startup with a clear error.
 
+## Signal phases
+
+Each intersection must define phases: named groups of non-conflicting signals that may be Green at the same time. There is no automatic phase generation; every intersection must explicitly list its allowed phases in topology configuration.
+
+Example topology phase configuration:
+
+```json
+{
+  "Id": "I1",
+  "Name": "Intersection 1",
+  "Signals": [
+    { "Id": "S1", "Name": "North" },
+    { "Id": "S2", "Name": "East" },
+    { "Id": "S3", "Name": "South" },
+    { "Id": "S4", "Name": "West" }
+  ],
+  "Phases": [
+    {
+      "Id": "P1",
+      "Name": "North/South",
+      "GreenSignalIds": ["S1", "S3"]
+    },
+    {
+      "Id": "P2",
+      "Name": "East/West",
+      "GreenSignalIds": ["S2", "S4"]
+    }
+  ]
+}
+```
+
+`FixedTime` cycles through phases in topology order. `LongestQueueFirst` scores each phase by summing the latest queue length for all signals in `GreenSignalIds`, then selects the highest-scoring phase while applying fairness at the phase level.
+
+Gateway applies all selected signals from a command as Green, transitions all selected signals to Yellow together, then returns them to Red. `/api/signal-states` can therefore show multiple Green signals for the same intersection.
+
 ## Compare experiment runs
 
 Run one controlled experiment with `Policy:Mode` set to `FixedTime`, then mark it finished and note its run id from:

@@ -62,7 +62,8 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
                 continue;
             }
 
-            var selectedSignal = intersection.Signals[state.CurrentSignalIndex];
+            var selectedPhase = intersection.Phases[state.CurrentPhaseIndex];
+            var selectedSignalId = selectedPhase.GreenSignalIds[0];
 
             commands.Add(new ScheduledSignalDecisionCommand(
                 new SignalDecisionCommand(
@@ -70,15 +71,19 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
                     latestMeasurement.RunId,
                     SchemaVersion,
                     intersection.Id,
-                    selectedSignal.Id,
+                    selectedSignalId,
                     PolicyMode.FixedTime,
                     _settings.FixedTime.GreenSeconds,
                     _settings.FixedTime.YellowSeconds,
-                    utcNow),
+                    utcNow)
+                {
+                    SelectedPhaseId = selectedPhase.Id,
+                    SelectedSignalIds = selectedPhase.GreenSignalIds.ToArray()
+                },
                 "fixed-cycle",
                 latestMeasurement.QueueLength));
 
-            state.MarkIssued(utcNow, intersection.Signals.Count);
+            state.MarkIssued(utcNow, intersection.Phases.Count);
         }
 
         return commands;
@@ -101,11 +106,11 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
 
     private sealed class IntersectionCommandState
     {
-        public int CurrentSignalIndex { get; private set; }
+        public int CurrentPhaseIndex { get; private set; }
 
         public DateTimeOffset? LastCommandIssuedAtUtc { get; private set; }
 
-        public int NextSignalIndex => CurrentSignalIndex;
+        public int NextPhaseIndex => CurrentPhaseIndex;
 
         public bool IsDue(DateTimeOffset utcNow, TimeSpan phaseDuration)
         {
@@ -113,10 +118,10 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
                 utcNow - LastCommandIssuedAtUtc.Value >= phaseDuration;
         }
 
-        public void MarkIssued(DateTimeOffset issuedAtUtc, int signalCount)
+        public void MarkIssued(DateTimeOffset issuedAtUtc, int phaseCount)
         {
             LastCommandIssuedAtUtc = issuedAtUtc;
-            CurrentSignalIndex = (NextSignalIndex + 1) % signalCount;
+            CurrentPhaseIndex = (NextPhaseIndex + 1) % phaseCount;
         }
     }
 }

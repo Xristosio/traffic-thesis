@@ -37,16 +37,21 @@ public sealed class SignalStateStore : ISignalStateStore
                     $"Signal command targets unknown intersection '{command.IntersectionId}'.");
             }
 
-            if (!intersection.Signals.Any(signal =>
-                string.Equals(signal.SignalId, command.SelectedSignalId, StringComparison.OrdinalIgnoreCase)))
+            var selectedSignalIds = GetSelectedSignalIds(command);
+            var unknownSignalIds = selectedSignalIds
+                .Where(selectedSignalId => !intersection.Signals.Any(signal =>
+                    string.Equals(signal.SignalId, selectedSignalId, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            if (unknownSignalIds.Length > 0)
             {
                 throw new InvalidOperationException(
-                    $"Signal command targets unknown signal '{command.SelectedSignalId}' in intersection '{command.IntersectionId}'.");
+                    $"Signal command targets unknown signal(s) '{string.Join(",", unknownSignalIds)}' in intersection '{command.IntersectionId}'.");
             }
 
             intersection.ActiveCommand = new ActiveSignalCommand(
                 command.RunId,
-                command.SelectedSignalId,
+                selectedSignalIds,
                 utcNow,
                 TimeSpan.FromSeconds(command.GreenDurationSeconds),
                 TimeSpan.FromSeconds(command.YellowDurationSeconds));
@@ -140,7 +145,7 @@ public sealed class SignalStateStore : ISignalStateStore
 
         foreach (var signal in intersection.Signals)
         {
-            if (!string.Equals(signal.SignalId, activeCommand.SelectedSignalId, StringComparison.OrdinalIgnoreCase))
+            if (!activeCommand.SelectedSignalIds.Contains(signal.SignalId))
             {
                 signal.Update(SignalState.Red, 0, signal.QueueLength);
                 continue;
@@ -191,6 +196,18 @@ public sealed class SignalStateStore : ISignalStateStore
         return Math.Max(0, (int)Math.Floor(elapsed.TotalSeconds));
     }
 
+    private static IReadOnlySet<string> GetSelectedSignalIds(SignalDecisionCommand command)
+    {
+        var selectedSignalIds = command.SelectedSignalIds.Count > 0
+            ? command.SelectedSignalIds
+            : [command.SelectedSignalId];
+
+        return selectedSignalIds
+            .Where(signalId => !string.IsNullOrWhiteSpace(signalId))
+            .Select(signalId => signalId.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
     private sealed class IntersectionSignalState
     {
         public IntersectionSignalState(
@@ -210,7 +227,7 @@ public sealed class SignalStateStore : ISignalStateStore
 
     private sealed record ActiveSignalCommand(
         Guid RunId,
-        string SelectedSignalId,
+        IReadOnlySet<string> SelectedSignalIds,
         DateTimeOffset AppliedAtUtc,
         TimeSpan GreenDuration,
         TimeSpan YellowDuration);

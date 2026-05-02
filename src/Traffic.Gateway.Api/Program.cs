@@ -37,6 +37,12 @@ app.MapGet("/api/topology", (TrafficTopology topology) =>
                 intersection.Name,
                 intersection.Signals
                     .Select(signal => new TopologySignalResponse(signal.Id, signal.Name))
+                    .ToArray(),
+                intersection.Phases
+                    .Select(phase => new TopologyPhaseResponse(
+                        phase.Id,
+                        phase.Name,
+                        phase.GreenSignalIds))
                     .ToArray()))
             .ToArray()))
     .WithName("GetTopology");

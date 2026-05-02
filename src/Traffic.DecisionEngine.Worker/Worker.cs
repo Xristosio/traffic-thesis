@@ -114,19 +114,29 @@ public class Worker : BackgroundService
         if (scheduledCommand.IsFairnessSwitch)
         {
             _logger.LogInformation(
-                "LQF fairness switch: intersection={IntersectionId} from={PreviousSignalId} to={SelectedSignalId} reason={Reason}",
+                "LQF fairness switch: intersection={IntersectionId} fromPhase={PreviousPhaseId} toPhase={SelectedPhaseId} signals={SelectedSignalIds} score={Score} reason={Reason}",
                 command.IntersectionId,
-                scheduledCommand.PreviousSignalId ?? "none",
-                command.SelectedSignalId,
+                scheduledCommand.PreviousPhaseId ?? "none",
+                command.SelectedPhaseId ?? command.SelectedSignalId,
+                FormatSelectedSignalIds(command),
+                scheduledCommand.SelectedQueueLength,
                 scheduledCommand.Reason);
             return;
         }
 
         _logger.LogInformation(
-            "LQF decision: intersection={IntersectionId} selectedSignal={SelectedSignalId} queue={QueueLength} reason={Reason}",
+            "LQF decision: intersection={IntersectionId} selectedPhase={SelectedPhaseId} signals={SelectedSignalIds} score={Score} reason={Reason}",
             command.IntersectionId,
-            command.SelectedSignalId,
+            command.SelectedPhaseId ?? command.SelectedSignalId,
+            FormatSelectedSignalIds(command),
             scheduledCommand.SelectedQueueLength,
             scheduledCommand.Reason);
+    }
+
+    private static string FormatSelectedSignalIds(SignalDecisionCommand command)
+    {
+        return command.SelectedSignalIds.Count > 0
+            ? string.Join(",", command.SelectedSignalIds)
+            : command.SelectedSignalId;
     }
 }

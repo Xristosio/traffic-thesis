@@ -80,9 +80,10 @@ public sealed class SignalControllerWorker : BackgroundService
             }
 
             _logger.LogInformation(
-                "Received command: intersection={IntersectionId} selectedSignal={SelectedSignalId} policy={Policy} green={GreenDurationSeconds} yellow={YellowDurationSeconds}",
+                "Received command: intersection={IntersectionId} selectedPhase={SelectedPhaseId} selectedSignals={SelectedSignalIds} policy={Policy} green={GreenDurationSeconds} yellow={YellowDurationSeconds}",
                 command.IntersectionId,
-                command.SelectedSignalId,
+                command.SelectedPhaseId ?? command.SelectedSignalId,
+                FormatSelectedSignalIds(command),
                 command.Policy,
                 command.GreenDurationSeconds,
                 command.YellowDurationSeconds);
@@ -105,9 +106,9 @@ public sealed class SignalControllerWorker : BackgroundService
             }
 
             _logger.LogInformation(
-                "Applied state: intersection={IntersectionId} green={GreenSignalId}",
+                "Applied state: intersection={IntersectionId} green={GreenSignalIds}",
                 snapshot.IntersectionId,
-                GetGreenSignalId(snapshot));
+                GetGreenSignalIds(snapshot));
 
             await PersistSnapshotAsync(snapshot, stoppingToken);
             await _snapshotPublisher.PublishAsync(snapshot, stoppingToken);
@@ -287,10 +288,23 @@ public sealed class SignalControllerWorker : BackgroundService
         }
     }
 
-    private static string GetGreenSignalId(SignalStateSnapshot snapshot)
+    private static string GetGreenSignalIds(SignalStateSnapshot snapshot)
     {
-        return snapshot.Signals.FirstOrDefault(signal => signal.State == SignalState.Green)?.SignalId
-            ?? "none";
+        var greenSignalIds = snapshot.Signals
+            .Where(signal => signal.State == SignalState.Green)
+            .Select(signal => signal.SignalId)
+            .ToArray();
+
+        return greenSignalIds.Length > 0
+            ? string.Join(",", greenSignalIds)
+            : "none";
+    }
+
+    private static string FormatSelectedSignalIds(SignalDecisionCommand command)
+    {
+        return command.SelectedSignalIds.Count > 0
+            ? string.Join(",", command.SelectedSignalIds)
+            : command.SelectedSignalId;
     }
 
     private static string FormatStates(SignalStateSnapshot snapshot)

@@ -60,9 +60,9 @@ public sealed class LongestQueueFirstSignalDecisionCommandScheduler : ISignalDec
             var latestMeasurement = measurements
                 .OrderByDescending(measurement => measurement.MeasuredAtUtc)
                 .First();
-            var signalQueues = BuildSignalQueues(intersection, measurements);
+            var phaseQueues = BuildPhaseQueues(intersection, measurements);
             var state = _states[intersection.Id];
-            var selection = SelectSignal(state, signalQueues, utcNow);
+            var selection = SelectPhase(state, phaseQueues, utcNow);
             if (selection is null)
             {
                 continue;
@@ -74,23 +74,28 @@ public sealed class LongestQueueFirstSignalDecisionCommandScheduler : ISignalDec
                     latestMeasurement.RunId,
                     SchemaVersion,
                     intersection.Id,
-                    selection.SignalId,
+                    selection.PrimarySignalId,
                     PolicyMode.LongestQueueFirst,
                     _settings.MaxGreenSeconds,
                     _settings.YellowSeconds,
-                    utcNow),
+                    utcNow)
+                {
+                    SelectedPhaseId = selection.PhaseId,
+                    SelectedSignalIds = selection.GreenSignalIds.ToArray()
+                },
                 selection.Reason,
-                selection.QueueLength,
-                state.CurrentSignalId,
-                selection.IsFairnessSwitch));
+                selection.Score,
+                PreviousSignalId: null,
+                IsFairnessSwitch: selection.IsFairnessSwitch,
+                PreviousPhaseId: state.CurrentPhaseId));
 
-            state.MarkIssued(selection.SignalId, utcNow);
+            state.MarkIssued(selection.PhaseId, utcNow);
         }
 
         return commands;
     }
 
-    private IReadOnlyList<SignalQueueInfo> BuildSignalQueues(
+    private static IReadOnlyList<PhaseQueueInfo> BuildPhaseQueues(
         IntersectionDefinition intersection,
         IReadOnlyCollection<TrafficMeasurement> measurements)
     {
@@ -98,27 +103,37 @@ public sealed class LongestQueueFirstSignalDecisionCommandScheduler : ISignalDec
             measurement => measurement.SignalId,
             StringComparer.OrdinalIgnoreCase);
 
-        return intersection.Signals
-            .Select((signal, index) =>
+        return intersection.Phases
+            .Select((phase, index) =>
             {
-                return measurementsBySignal.TryGetValue(signal.Id, out var measurement)
-                    ? new SignalQueueInfo(signal.Id, measurement.QueueLength, index)
-                    : new SignalQueueInfo(signal.Id, 0, index);
+                var score = phase.GreenSignalIds.Sum(signalId =>
+                    measurementsBySignal.TryGetValue(signalId, out var measurement)
+                        ? measurement.QueueLength
+                        : 0);
+
+                return new PhaseQueueInfo(
+                    phase.Id,
+                    phase.GreenSignalIds[0],
+                    phase.GreenSignalIds,
+                    score,
+                    index);
             })
             .ToArray();
     }
 
-    private SignalSelection? SelectSignal(
+    private PhaseSelection? SelectPhase(
         IntersectionCommandState state,
-        IReadOnlyList<SignalQueueInfo> signalQueues,
+        IReadOnlyList<PhaseQueueInfo> phaseQueues,
         DateTimeOffset utcNow)
     {
-        var largestQueue = GetLargestQueue(signalQueues);
+        var largestQueue = GetLargestQueue(phaseQueues);
         if (state.LastCommandIssuedAtUtc is null)
         {
-            return new SignalSelection(
-                largestQueue.SignalId,
-                largestQueue.QueueLength,
+            return new PhaseSelection(
+                largestQueue.PhaseId,
+                largestQueue.PrimarySignalId,
+                largestQueue.GreenSignalIds,
+                largestQueue.Score,
                 "largest-queue",
                 IsFairnessSwitch: false);
         }
@@ -129,66 +144,72 @@ public sealed class LongestQueueFirstSignalDecisionCommandScheduler : ISignalDec
             return null;
         }
 
-        var currentSignalId = state.CurrentSignalId;
-        var bestAlternative = GetBestAlternativeMeetingThreshold(signalQueues, currentSignalId);
+        var currentPhaseId = state.CurrentPhaseId;
+        var bestAlternative = GetBestAlternativeMeetingThreshold(phaseQueues, currentPhaseId);
 
         if (state.ConsecutiveSelections >= _settings.MaxConsecutiveSelections &&
             bestAlternative is not null)
         {
-            return new SignalSelection(
-                bestAlternative.SignalId,
-                bestAlternative.QueueLength,
+            return new PhaseSelection(
+                bestAlternative.PhaseId,
+                bestAlternative.PrimarySignalId,
+                bestAlternative.GreenSignalIds,
+                bestAlternative.Score,
                 "max-consecutive",
                 IsFairnessSwitch: true);
         }
 
-        if (string.Equals(largestQueue.SignalId, currentSignalId, StringComparison.OrdinalIgnoreCase) &&
+        if (string.Equals(largestQueue.PhaseId, currentPhaseId, StringComparison.OrdinalIgnoreCase) &&
             elapsed < TimeSpan.FromSeconds(_settings.MaxGreenSeconds))
         {
             return null;
         }
 
         if (elapsed >= TimeSpan.FromSeconds(_settings.MaxGreenSeconds) &&
-            string.Equals(largestQueue.SignalId, currentSignalId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(largestQueue.PhaseId, currentPhaseId, StringComparison.OrdinalIgnoreCase) &&
             bestAlternative is not null)
         {
-            return new SignalSelection(
-                bestAlternative.SignalId,
-                bestAlternative.QueueLength,
+            return new PhaseSelection(
+                bestAlternative.PhaseId,
+                bestAlternative.PrimarySignalId,
+                bestAlternative.GreenSignalIds,
+                bestAlternative.Score,
                 "max-green",
                 IsFairnessSwitch: true);
         }
 
-        return new SignalSelection(
-            largestQueue.SignalId,
-            largestQueue.QueueLength,
+        return new PhaseSelection(
+            largestQueue.PhaseId,
+            largestQueue.PrimarySignalId,
+            largestQueue.GreenSignalIds,
+            largestQueue.Score,
             "largest-queue",
             IsFairnessSwitch: false);
     }
 
-    private SignalQueueInfo GetLargestQueue(IReadOnlyList<SignalQueueInfo> signalQueues)
+    private static PhaseQueueInfo GetLargestQueue(IReadOnlyList<PhaseQueueInfo> phaseQueues)
     {
-        return signalQueues
-            .OrderByDescending(signal => signal.QueueLength)
-            .ThenBy(signal => signal.TopologyOrder)
+        return phaseQueues
+            .OrderByDescending(phase => phase.Score)
+            .ThenBy(phase => phase.TopologyOrder)
             .First();
     }
 
-    private SignalQueueInfo? GetBestAlternativeMeetingThreshold(
-        IReadOnlyList<SignalQueueInfo> signalQueues,
-        string? currentSignalId)
+    private PhaseQueueInfo? GetBestAlternativeMeetingThreshold(
+        IReadOnlyList<PhaseQueueInfo> phaseQueues,
+        string? currentPhaseId)
     {
-        if (currentSignalId is null)
+        if (currentPhaseId is null)
         {
             return null;
         }
 
-        return signalQueues
-            .Where(signal =>
-                !string.Equals(signal.SignalId, currentSignalId, StringComparison.OrdinalIgnoreCase) &&
-                signal.QueueLength >= _settings.FairnessQueueThreshold)
-            .OrderByDescending(signal => signal.QueueLength)
-            .ThenBy(signal => signal.TopologyOrder)
+        return phaseQueues
+            .Where(phase =>
+                !string.Equals(phase.PhaseId, currentPhaseId, StringComparison.OrdinalIgnoreCase) &&
+                phase.Score >= _settings.FairnessQueueThreshold)
+            .OrderByDescending(phase => phase.Score)
+            .ThenBy(phase => phase.TopologyOrder)
             .FirstOrDefault();
     }
 
@@ -227,34 +248,38 @@ public sealed class LongestQueueFirstSignalDecisionCommandScheduler : ISignalDec
 
     private sealed class IntersectionCommandState
     {
-        public string? CurrentSignalId { get; private set; }
+        public string? CurrentPhaseId { get; private set; }
 
         public DateTimeOffset? LastCommandIssuedAtUtc { get; private set; }
 
         public int ConsecutiveSelections { get; private set; }
 
-        public void MarkIssued(string selectedSignalId, DateTimeOffset issuedAtUtc)
+        public void MarkIssued(string selectedPhaseId, DateTimeOffset issuedAtUtc)
         {
             ConsecutiveSelections = string.Equals(
-                CurrentSignalId,
-                selectedSignalId,
+                CurrentPhaseId,
+                selectedPhaseId,
                 StringComparison.OrdinalIgnoreCase)
                 ? ConsecutiveSelections + 1
                 : 1;
 
-            CurrentSignalId = selectedSignalId;
+            CurrentPhaseId = selectedPhaseId;
             LastCommandIssuedAtUtc = issuedAtUtc;
         }
     }
 
-    private sealed record SignalQueueInfo(
-        string SignalId,
-        int QueueLength,
+    private sealed record PhaseQueueInfo(
+        string PhaseId,
+        string PrimarySignalId,
+        IReadOnlyList<string> GreenSignalIds,
+        int Score,
         int TopologyOrder);
 
-    private sealed record SignalSelection(
-        string SignalId,
-        int QueueLength,
+    private sealed record PhaseSelection(
+        string PhaseId,
+        string PrimarySignalId,
+        IReadOnlyList<string> GreenSignalIds,
+        int Score,
         string Reason,
         bool IsFairnessSwitch);
 }
