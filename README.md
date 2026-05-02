@@ -153,6 +153,35 @@ Username: postgres
 Password: postgres
 ```
 
+## PostgreSQL migrations
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Apply EF Core migrations:
+
+```bash
+dotnet ef database update --project src/Traffic.Infrastructure/Traffic.Infrastructure.csproj --startup-project src/Traffic.Infrastructure/Traffic.Infrastructure.csproj --context TrafficDbContext
+```
+
+If your global `dotnet-ef` tool is older than the project EF Core version, update it first:
+
+```bash
+dotnet tool update --global dotnet-ef --version 10.0.4
+```
+
+Verify tables in PostgreSQL:
+
+```bash
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "\dt"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from traffic_measurements;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from signal_decision_commands;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from signal_state_snapshots;"
+```
+
 ## Configuration
 
 Each executable project uses its own `appsettings.Development.json`.
