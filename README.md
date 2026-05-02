@@ -95,6 +95,24 @@ http://localhost:8085
 
 Check the `traffic.state` topic for produced `SignalStateSnapshot` JSON messages.
 
+## Verify Gateway read API
+
+Start the local infrastructure, then run the full pipeline:
+
+```bash
+docker compose up -d
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
+dotnet run --project src/Traffic.DecisionEngine.Worker/Traffic.DecisionEngine.Worker.csproj
+dotnet run --project src/Traffic.Gateway.Api/Traffic.Gateway.Api.csproj
+```
+
+Open the Gateway API endpoints:
+
+```
+http://localhost:5011/api/topology
+http://localhost:5011/api/signal-states
+```
+
 ## PostgreSQL:
 
 ```
