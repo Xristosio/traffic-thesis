@@ -114,5 +114,11 @@ public sealed class ProducerSimulationService : IProducerSimulationService
             throw new InvalidOperationException(
                 "Simulation DepartureRatePerTick must be greater than zero.");
         }
+
+        if (settings.RunDurationSeconds is <= 0)
+        {
+            throw new InvalidOperationException(
+                "Simulation RunDurationSeconds must be null or greater than zero.");
+        }
     }
 }

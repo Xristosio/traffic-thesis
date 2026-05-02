@@ -11,4 +11,10 @@ public sealed class SimulationSettings
     public string Scenario { get; set; } = string.Empty;
 
     public int DepartureRatePerTick { get; set; }
+
+    public int? RunDurationSeconds { get; set; }
+
+    public bool StopProducerAfterRun { get; set; }
+
+    public string ExperimentName { get; set; } = string.Empty;
 }

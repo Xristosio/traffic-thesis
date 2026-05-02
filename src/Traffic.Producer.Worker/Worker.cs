@@ -13,6 +13,7 @@ public class Worker : BackgroundService
     private readonly IMessageConsumer<SignalStateSnapshot> _stateConsumer;
     private readonly IProducerSignalStateStore _stateStore;
     private readonly SimulationSettings _settings;
+    private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
     public Worker(
         ILogger<Worker> logger,
@@ -20,7 +21,8 @@ public class Worker : BackgroundService
         IProducerSimulationService simulation,
         IMessageConsumer<SignalStateSnapshot> stateConsumer,
         IProducerSignalStateStore stateStore,
-        SimulationSettings settings)
+        SimulationSettings settings,
+        IHostApplicationLifetime hostApplicationLifetime)
     {
         _logger = logger;
         _publisher = publisher;
@@ -28,10 +30,13 @@ public class Worker : BackgroundService
         _stateConsumer = stateConsumer;
         _stateStore = stateStore;
         _settings = settings;
+        _hostApplicationLifetime = hostApplicationLifetime;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        LogRunStartup();
+
         var stateConsumeTask = Task.Run(
             () => ConsumeSignalStatesAsync(stoppingToken),
             stoppingToken);
@@ -51,7 +56,12 @@ public class Worker : BackgroundService
 
     private async Task GenerateMeasurementsAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        var startedAtUtc = DateTimeOffset.UtcNow;
+        var endsAtUtc = _settings.RunDurationSeconds.HasValue
+            ? startedAtUtc.AddSeconds(_settings.RunDurationSeconds.Value)
+            : (DateTimeOffset?)null;
+
+        while (!stoppingToken.IsCancellationRequested && ShouldContinueGenerating(endsAtUtc))
         {
             var generatedMeasurements = _simulation.GenerateMeasurements();
 
@@ -72,7 +82,27 @@ public class Worker : BackgroundService
                 await _publisher.PublishAsync(measurement, stoppingToken);
             }
 
-            await Task.Delay(_settings.TickMilliseconds, stoppingToken);
+            var delay = GetNextTickDelay(endsAtUtc);
+            if (delay <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(delay, stoppingToken);
+        }
+
+        if (!stoppingToken.IsCancellationRequested && endsAtUtc.HasValue)
+        {
+            _logger.LogInformation(
+                "Producer run completed: run={RunId} durationSeconds={RunDurationSeconds} stopProducerAfterRun={StopProducerAfterRun}",
+                _simulation.RunId,
+                _settings.RunDurationSeconds,
+                _settings.StopProducerAfterRun);
+
+            if (_settings.StopProducerAfterRun)
+            {
+                _hostApplicationLifetime.StopApplication();
+            }
         }
     }
 
@@ -100,5 +130,37 @@ public class Worker : BackgroundService
         return string.Join(
             ",",
             snapshot.Signals.Select(signal => $"{signal.SignalId}={signal.State}"));
+    }
+
+    private void LogRunStartup()
+    {
+        _logger.LogInformation(
+            "Producer run starting: run={RunId} scenario={Scenario} randomSeed={RandomSeed} tickMilliseconds={TickMilliseconds} runDurationSeconds={RunDurationSeconds} stopProducerAfterRun={StopProducerAfterRun} experimentName={ExperimentName}",
+            _simulation.RunId,
+            _settings.Scenario,
+            _settings.RandomSeed,
+            _settings.TickMilliseconds,
+            _settings.RunDurationSeconds,
+            _settings.StopProducerAfterRun,
+            string.IsNullOrWhiteSpace(_settings.ExperimentName) ? "none" : _settings.ExperimentName);
+    }
+
+    private static bool ShouldContinueGenerating(DateTimeOffset? endsAtUtc)
+    {
+        return !endsAtUtc.HasValue || DateTimeOffset.UtcNow < endsAtUtc.Value;
+    }
+
+    private TimeSpan GetNextTickDelay(DateTimeOffset? endsAtUtc)
+    {
+        var tickDelay = TimeSpan.FromMilliseconds(_settings.TickMilliseconds);
+        if (!endsAtUtc.HasValue)
+        {
+            return tickDelay;
+        }
+
+        var remaining = endsAtUtc.Value - DateTimeOffset.UtcNow;
+        return remaining < tickDelay
+            ? remaining
+            : tickDelay;
     }
 }

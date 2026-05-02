@@ -170,6 +170,55 @@ docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select r
 docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select run_id, count(*) as state_snapshot_count from signal_state_snapshots group by run_id;"
 ```
 
+## Run a controlled experiment
+
+Choose the policy in `src/Traffic.DecisionEngine.Worker/appsettings.json`:
+
+```json
+{
+  "Policy": {
+    "Mode": "LongestQueueFirst"
+  }
+}
+```
+
+Configure the Producer run in `src/Traffic.Producer.Worker/appsettings.json`:
+
+```json
+{
+  "Simulation": {
+    "TickMilliseconds": 1000,
+    "RandomSeed": 42,
+    "Scenario": "Balanced",
+    "DepartureRatePerTick": 3,
+    "RunDurationSeconds": 60,
+    "StopProducerAfterRun": true,
+    "ExperimentName": "Balanced-LQF-60s"
+  }
+}
+```
+
+Start infrastructure and services:
+
+```bash
+docker compose up -d
+dotnet run --project src/Traffic.Gateway.Api/Traffic.Gateway.Api.csproj
+dotnet run --project src/Traffic.DecisionEngine.Worker/Traffic.DecisionEngine.Worker.csproj
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
+```
+
+After the Producer stops, mark the latest run as finished:
+
+```bash
+curl -X POST http://localhost:5011/api/experiment-runs/latest/finish
+```
+
+Open the latest metrics:
+
+```
+http://localhost:5011/api/experiment-runs/latest/metrics
+```
+
 ## PostgreSQL:
 
 ```
