@@ -6,7 +6,8 @@ using Traffic.Infrastructure.DependencyInjection;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddTrafficConfiguration(builder.Configuration)
-    .AddTrafficTopology();
+    .AddTrafficTopology()
+    .AddTrafficMeasurementConsuming();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
