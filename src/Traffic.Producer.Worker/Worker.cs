@@ -1,20 +1,25 @@
+using Traffic.Application.Messaging;
 using Traffic.Application.Simulation;
 using Traffic.Contracts.Configuration;
+using Traffic.Contracts.Messages;
 
 namespace Traffic.Producer.Worker;
 
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
+    private readonly IMessagePublisher<TrafficMeasurement> _publisher;
     private readonly IProducerSimulationService _simulation;
     private readonly SimulationSettings _settings;
 
     public Worker(
         ILogger<Worker> logger,
+        IMessagePublisher<TrafficMeasurement> publisher,
         IProducerSimulationService simulation,
         SimulationSettings settings)
     {
         _logger = logger;
+        _publisher = publisher;
         _simulation = simulation;
         _settings = settings;
     }
@@ -35,6 +40,8 @@ public class Worker : BackgroundService
                     measurement.QueueLength,
                     measurement.Arrivals,
                     measurement.Departures);
+
+                await _publisher.PublishAsync(measurement, stoppingToken);
             }
 
             await Task.Delay(_settings.TickMilliseconds, stoppingToken);

@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Traffic.Application.Messaging;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
 using Traffic.Contracts.Configuration;
+using Traffic.Contracts.Messages;
 using Traffic.Domain.Topology;
+using Traffic.Infrastructure.Messaging;
 
 namespace Traffic.Infrastructure.DependencyInjection;
 
@@ -47,6 +50,15 @@ public static class TrafficServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IProducerSimulationService, ProducerSimulationService>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficMeasurementPublishing(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<IMessagePublisher<TrafficMeasurement>, KafkaTrafficMeasurementPublisher>();
 
         return services;
     }

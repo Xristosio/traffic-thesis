@@ -7,7 +7,8 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddTrafficConfiguration(builder.Configuration)
     .AddTrafficTopology()
-    .AddTrafficProducerSimulation();
+    .AddTrafficProducerSimulation()
+    .AddTrafficMeasurementPublishing();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
