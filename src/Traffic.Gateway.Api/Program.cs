@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Traffic.Gateway.Api;
+using Traffic.Application.SignalStates;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.DependencyInjection;
 
@@ -24,6 +25,37 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.MapGet("/api/topology", (TrafficTopology topology) =>
+    new TopologyResponse(
+        topology.Intersections
+            .Select(intersection => new TopologyIntersectionResponse(
+                intersection.Id,
+                intersection.Name,
+                intersection.Signals
+                    .Select(signal => new TopologySignalResponse(signal.Id, signal.Name))
+                    .ToArray()))
+            .ToArray()))
+    .WithName("GetTopology");
+
+app.MapGet("/api/signal-states", (ISignalStateStore signalStateStore) =>
+    signalStateStore.GetCurrentSnapshots(DateTimeOffset.UtcNow)
+        .Select(ToSignalStateResponse)
+        .ToArray())
+    .WithName("GetSignalStates");
+
+app.MapGet(
+    "/api/signal-states/{intersectionId}",
+    (string intersectionId, ISignalStateStore signalStateStore) =>
+    {
+        return signalStateStore.TryGetCurrentSnapshot(
+            intersectionId,
+            DateTimeOffset.UtcNow,
+            out var snapshot)
+            ? Results.Ok(ToSignalStateResponse(snapshot))
+            : Results.NotFound();
+    })
+    .WithName("GetSignalStatesByIntersection");
 
 var summaries = new[]
 {
@@ -65,6 +97,19 @@ static void LogTopologySummary(IServiceProvider serviceProvider)
             intersection.Id,
             intersection.Signals.Count);
     }
+}
+
+static SignalStateResponse ToSignalStateResponse(Traffic.Contracts.Messages.SignalStateSnapshot snapshot)
+{
+    return new SignalStateResponse(
+        snapshot.IntersectionId,
+        snapshot.Signals
+            .Select(signal => new SignalStateItemResponse(
+                signal.SignalId,
+                signal.State,
+                signal.ElapsedSeconds,
+                signal.QueueLength))
+            .ToArray());
 }
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)

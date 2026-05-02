@@ -66,6 +66,36 @@ public sealed class SignalStateStore : ISignalStateStore
         }
     }
 
+    public IReadOnlyList<SignalStateSnapshot> GetCurrentSnapshots(DateTimeOffset utcNow)
+    {
+        lock (_syncRoot)
+        {
+            return _intersections.Values
+                .Select(intersection => BuildSnapshot(intersection, utcNow))
+                .ToArray();
+        }
+    }
+
+    public bool TryGetCurrentSnapshot(
+        string intersectionId,
+        DateTimeOffset utcNow,
+        out SignalStateSnapshot snapshot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(intersectionId);
+
+        lock (_syncRoot)
+        {
+            if (!_intersections.TryGetValue(intersectionId, out var intersection))
+            {
+                snapshot = null!;
+                return false;
+            }
+
+            snapshot = BuildSnapshot(intersection, utcNow);
+            return true;
+        }
+    }
+
     private static SignalStateSnapshot BuildSnapshot(
         IntersectionSignalState intersection,
         DateTimeOffset utcNow)
