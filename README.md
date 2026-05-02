@@ -141,6 +141,33 @@ Open the Gateway API endpoints:
 ```
 http://localhost:5011/api/topology
 http://localhost:5011/api/signal-states
+http://localhost:5011/api/experiment-runs
+http://localhost:5011/api/experiment-runs/latest/metrics
+http://localhost:5011/api/experiment-runs/{runId}/metrics
+```
+
+## Verify experiment run metrics
+
+After the full pipeline has run long enough to persist data, open:
+
+```
+http://localhost:5011/api/experiment-runs
+http://localhost:5011/api/experiment-runs/latest/metrics
+```
+
+Use a run id from `/api/experiment-runs` to open:
+
+```
+http://localhost:5011/api/experiment-runs/{runId}/metrics
+```
+
+Manual PostgreSQL validation:
+
+```bash
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select id, policy, scenario, started_at_utc, finished_at_utc from experiment_runs order by started_at_utc desc;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select run_id, count(*) as measurement_count, avg(queue_length) as average_queue_length, max(queue_length) as max_queue_length, sum(arrivals) as total_arrivals, sum(departures) as total_departures from traffic_measurements group by run_id order by max(measured_at_utc) desc;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select run_id, count(*) as decision_command_count from signal_decision_commands group by run_id;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select run_id, count(*) as state_snapshot_count from signal_state_snapshots group by run_id;"
 ```
 
 ## PostgreSQL:

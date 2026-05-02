@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Traffic.Gateway.Api;
+using Traffic.Application.Metrics;
 using Traffic.Application.SignalStates;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.DependencyInjection;
@@ -57,6 +58,36 @@ app.MapGet(
             : Results.NotFound();
     })
     .WithName("GetSignalStatesByIntersection");
+
+app.MapGet(
+    "/api/experiment-runs",
+    async (IExperimentMetricsRepository metricsRepository, CancellationToken cancellationToken) =>
+        await metricsRepository.GetRunsAsync(cancellationToken))
+    .WithName("GetExperimentRuns");
+
+app.MapGet(
+    "/api/experiment-runs/latest/metrics",
+    async (IExperimentMetricsRepository metricsRepository, CancellationToken cancellationToken) =>
+    {
+        var metrics = await metricsRepository.GetLatestMetricsAsync(cancellationToken);
+
+        return metrics is null
+            ? Results.NotFound()
+            : Results.Ok(metrics);
+    })
+    .WithName("GetLatestExperimentRunMetrics");
+
+app.MapGet(
+    "/api/experiment-runs/{runId:guid}/metrics",
+    async (Guid runId, IExperimentMetricsRepository metricsRepository, CancellationToken cancellationToken) =>
+    {
+        var metrics = await metricsRepository.GetMetricsAsync(runId, cancellationToken);
+
+        return metrics is null
+            ? Results.NotFound()
+            : Results.Ok(metrics);
+    })
+    .WithName("GetExperimentRunMetrics");
 
 var summaries = new[]
 {
