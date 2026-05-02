@@ -79,6 +79,25 @@ app.MapGet(
     .WithName("GetLatestExperimentRunMetrics");
 
 app.MapGet(
+    "/api/experiment-runs/compare",
+    async (
+        Guid baselineRunId,
+        Guid candidateRunId,
+        IExperimentMetricsRepository metricsRepository,
+        CancellationToken cancellationToken) =>
+    {
+        var comparison = await metricsRepository.CompareRunsAsync(
+            baselineRunId,
+            candidateRunId,
+            cancellationToken);
+
+        return comparison is null
+            ? Results.NotFound()
+            : Results.Ok(comparison);
+    })
+    .WithName("CompareExperimentRuns");
+
+app.MapGet(
     "/api/experiment-runs/{runId:guid}/metrics",
     async (Guid runId, IExperimentMetricsRepository metricsRepository, CancellationToken cancellationToken) =>
     {

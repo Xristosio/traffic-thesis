@@ -219,6 +219,24 @@ Open the latest metrics:
 http://localhost:5011/api/experiment-runs/latest/metrics
 ```
 
+## Compare experiment runs
+
+Run one controlled experiment with `Policy:Mode` set to `FixedTime`, then mark it finished and note its run id from:
+
+```
+http://localhost:5011/api/experiment-runs
+```
+
+Run another controlled experiment with `Policy:Mode` set to `LongestQueueFirst`, then mark it finished and note its run id.
+
+Compare the Fixed-Time baseline against the Longest-Queue-First candidate:
+
+```
+http://localhost:5011/api/experiment-runs/compare?baselineRunId=<fixed-time-run-id>&candidateRunId=<lqf-run-id>
+```
+
+In the comparison result, a negative `averageQueueLengthDelta` means the candidate had a lower average queue than the baseline. A positive `servedVehiclesDelta` means the candidate served more vehicles.
+
 ## PostgreSQL:
 
 ```

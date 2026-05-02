@@ -9,4 +9,9 @@ public interface IExperimentMetricsRepository
         CancellationToken cancellationToken);
 
     Task<ExperimentRunMetrics?> GetLatestMetricsAsync(CancellationToken cancellationToken);
+
+    Task<ExperimentRunComparison?> CompareRunsAsync(
+        Guid baselineRunId,
+        Guid candidateRunId,
+        CancellationToken cancellationToken);
 }
