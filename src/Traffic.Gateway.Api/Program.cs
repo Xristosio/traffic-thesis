@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Traffic.Gateway.Api;
 using Traffic.Application.Metrics;
+using Traffic.Application.Persistence;
 using Traffic.Application.SignalStates;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.DependencyInjection;
@@ -89,6 +90,36 @@ app.MapGet(
     })
     .WithName("GetExperimentRunMetrics");
 
+app.MapPost(
+    "/api/experiment-runs/latest/finish",
+    async (
+        IExperimentMetricsRepository metricsRepository,
+        IExperimentRunRepository experimentRunRepository,
+        CancellationToken cancellationToken) =>
+    {
+        var latestRun = (await metricsRepository.GetRunsAsync(cancellationToken))
+            .FirstOrDefault();
+        if (latestRun is null)
+        {
+            return Results.NotFound();
+        }
+
+        return await MarkRunFinishedAsync(
+            latestRun.RunId,
+            experimentRunRepository,
+            cancellationToken);
+    })
+    .WithName("FinishLatestExperimentRun");
+
+app.MapPost(
+    "/api/experiment-runs/{runId:guid}/finish",
+    async (
+        Guid runId,
+        IExperimentRunRepository experimentRunRepository,
+        CancellationToken cancellationToken) =>
+        await MarkRunFinishedAsync(runId, experimentRunRepository, cancellationToken))
+    .WithName("FinishExperimentRun");
+
 var summaries = new[]
 {
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
@@ -142,6 +173,38 @@ static SignalStateResponse ToSignalStateResponse(Traffic.Contracts.Messages.Sign
                 signal.ElapsedSeconds,
                 signal.QueueLength))
             .ToArray());
+}
+
+static async Task<IResult> MarkRunFinishedAsync(
+    Guid runId,
+    IExperimentRunRepository experimentRunRepository,
+    CancellationToken cancellationToken)
+{
+    var existing = await experimentRunRepository.GetByIdAsync(runId, cancellationToken);
+    if (existing is null)
+    {
+        return Results.NotFound();
+    }
+
+    await experimentRunRepository.MarkFinishedAsync(
+        runId,
+        DateTimeOffset.UtcNow,
+        cancellationToken);
+
+    var updated = await experimentRunRepository.GetByIdAsync(runId, cancellationToken);
+    return Results.Ok(ToExperimentRunResponse(updated ?? existing));
+}
+
+static object ToExperimentRunResponse(ExperimentRun run)
+{
+    return new
+    {
+        RunId = run.Id,
+        run.Policy,
+        run.Scenario,
+        run.StartedAtUtc,
+        run.FinishedAtUtc
+    };
 }
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
