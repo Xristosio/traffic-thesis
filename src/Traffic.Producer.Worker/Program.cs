@@ -6,7 +6,8 @@ using Traffic.Producer.Worker;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddTrafficConfiguration(builder.Configuration)
-    .AddTrafficTopology();
+    .AddTrafficTopology()
+    .AddTrafficProducerSimulation();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
