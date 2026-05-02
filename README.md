@@ -77,6 +77,24 @@ http://localhost:8085
 
 In Kafka UI, check the `traffic.commands` topic for produced `SignalDecisionCommand` JSON messages.
 
+## Verify Gateway state publishing
+
+Start the local infrastructure, then run these services:
+
+```bash
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
+dotnet run --project src/Traffic.DecisionEngine.Worker/Traffic.DecisionEngine.Worker.csproj
+dotnet run --project src/Traffic.Gateway.Api/Traffic.Gateway.Api.csproj
+```
+
+Open Kafka UI:
+
+```
+http://localhost:8085
+```
+
+Check the `traffic.state` topic for produced `SignalStateSnapshot` JSON messages.
+
 ## PostgreSQL:
 
 ```

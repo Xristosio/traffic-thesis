@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Traffic.Application.Measurements;
 using Traffic.Application.Messaging;
 using Traffic.Application.Policies;
+using Traffic.Application.SignalStates;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
 using Traffic.Contracts.Configuration;
@@ -81,6 +82,17 @@ public static class TrafficServiceCollectionExtensions
 
         services.AddSingleton<ISignalDecisionCommandScheduler, FixedTimeSignalDecisionCommandScheduler>();
         services.AddSingleton<IMessagePublisher<SignalDecisionCommand>, KafkaSignalDecisionCommandPublisher>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficGatewaySignalControl(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<ISignalStateStore, SignalStateStore>();
+        services.AddSingleton<IMessageConsumer<SignalDecisionCommand>, KafkaSignalDecisionCommandConsumer>();
+        services.AddSingleton<IMessagePublisher<SignalStateSnapshot>, KafkaSignalStateSnapshotPublisher>();
 
         return services;
     }

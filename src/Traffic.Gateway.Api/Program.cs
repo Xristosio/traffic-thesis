@@ -1,15 +1,18 @@
 using Microsoft.Extensions.DependencyInjection;
+using Traffic.Gateway.Api;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddTrafficConfiguration(builder.Configuration)
-    .AddTrafficTopology();
+    .AddTrafficTopology()
+    .AddTrafficGatewaySignalControl();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddHostedService<SignalControllerWorker>();
 
 var app = builder.Build();
 LogTopologySummary(app.Services);
