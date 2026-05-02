@@ -8,6 +8,8 @@ public interface ILatestMeasurementStore
 
     IReadOnlyCollection<TrafficMeasurement> GetAllLatest();
 
+    IReadOnlyCollection<TrafficMeasurement> GetLatestForIntersection(string intersectionId);
+
     bool TryGetLatestForIntersection(
         string intersectionId,
         out TrafficMeasurement measurement);

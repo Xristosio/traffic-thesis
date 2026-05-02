@@ -8,6 +8,7 @@ using Traffic.Application.SignalStates;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
 using Traffic.Contracts.Configuration;
+using Traffic.Contracts.Enums;
 using Traffic.Contracts.Messages;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.Messaging;
@@ -82,7 +83,30 @@ public static class TrafficServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<ISignalDecisionCommandScheduler, FixedTimeSignalDecisionCommandScheduler>();
+        services.AddSingleton<ISignalDecisionCommandScheduler>(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<PolicySettings>();
+            var topology = serviceProvider.GetRequiredService<TrafficTopology>();
+            var store = serviceProvider.GetRequiredService<ILatestMeasurementStore>();
+
+            if (!Enum.TryParse<PolicyMode>(settings.Mode, ignoreCase: true, out var mode))
+            {
+                return new UnsupportedSignalDecisionCommandScheduler(settings.Mode);
+            }
+
+            return mode switch
+            {
+                PolicyMode.FixedTime => new FixedTimeSignalDecisionCommandScheduler(
+                    topology,
+                    settings,
+                    store),
+                PolicyMode.LongestQueueFirst => new LongestQueueFirstSignalDecisionCommandScheduler(
+                    topology,
+                    settings,
+                    store),
+                _ => new UnsupportedSignalDecisionCommandScheduler(settings.Mode)
+            };
+        });
         services.AddSingleton<IMessagePublisher<SignalDecisionCommand>, KafkaSignalDecisionCommandPublisher>();
 
         return services;

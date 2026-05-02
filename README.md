@@ -77,6 +77,36 @@ http://localhost:8085
 
 In Kafka UI, check the `traffic.commands` topic for produced `SignalDecisionCommand` JSON messages.
 
+## Switch Decision Engine policy
+
+Set `Policy:Mode` in `src/Traffic.DecisionEngine.Worker/appsettings.json` or `appsettings.Development.json`:
+
+```json
+{
+  "Policy": {
+    "Mode": "FixedTime"
+  }
+}
+```
+
+or:
+
+```json
+{
+  "Policy": {
+    "Mode": "LongestQueueFirst"
+  }
+}
+```
+
+Run Producer and Decision Engine, then open Kafka UI:
+
+```
+http://localhost:8085
+```
+
+Check `traffic.commands` for `SignalDecisionCommand` messages. With `LongestQueueFirst`, command payloads use `"policy": "LongestQueueFirst"` and select signals based on the latest queues per intersection.
+
 ## Verify Gateway state publishing
 
 Start the local infrastructure, then run these services:

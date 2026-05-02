@@ -32,29 +32,22 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
             _ => new IntersectionCommandState(),
             StringComparer.OrdinalIgnoreCase);
 
-        if (IsFixedTimeMode)
-        {
-            ValidateFixedTimeSettings(settings.FixedTime);
-        }
+        ValidateFixedTimeSettings(settings.FixedTime);
     }
 
-    public bool IsFixedTimeMode =>
-        Enum.TryParse<PolicyMode>(ConfiguredPolicyMode, ignoreCase: true, out var mode) &&
-        mode == PolicyMode.FixedTime;
+    public PolicyMode? ActivePolicy => PolicyMode.FixedTime;
 
     public string ConfiguredPolicyMode => _settings.Mode;
 
-    public TimeSpan PhaseDuration => TimeSpan.FromSeconds(
+    public string Description =>
+        $"FixedTime command publishing enabled. Phase duration={PhaseDuration.TotalSeconds} seconds.";
+
+    private TimeSpan PhaseDuration => TimeSpan.FromSeconds(
         _settings.FixedTime.GreenSeconds + _settings.FixedTime.YellowSeconds);
 
-    public IReadOnlyList<SignalDecisionCommand> GetDueCommands(DateTimeOffset utcNow)
+    public IReadOnlyList<ScheduledSignalDecisionCommand> GetDueCommands(DateTimeOffset utcNow)
     {
-        if (!IsFixedTimeMode)
-        {
-            return [];
-        }
-
-        var commands = new List<SignalDecisionCommand>(_topology.Intersections.Count);
+        var commands = new List<ScheduledSignalDecisionCommand>(_topology.Intersections.Count);
 
         foreach (var intersection in _topology.Intersections)
         {
@@ -71,16 +64,19 @@ public sealed class FixedTimeSignalDecisionCommandScheduler : ISignalDecisionCom
 
             var selectedSignal = intersection.Signals[state.CurrentSignalIndex];
 
-            commands.Add(new SignalDecisionCommand(
-                Guid.NewGuid(),
-                latestMeasurement.RunId,
-                SchemaVersion,
-                intersection.Id,
-                selectedSignal.Id,
-                PolicyMode.FixedTime,
-                _settings.FixedTime.GreenSeconds,
-                _settings.FixedTime.YellowSeconds,
-                utcNow));
+            commands.Add(new ScheduledSignalDecisionCommand(
+                new SignalDecisionCommand(
+                    Guid.NewGuid(),
+                    latestMeasurement.RunId,
+                    SchemaVersion,
+                    intersection.Id,
+                    selectedSignal.Id,
+                    PolicyMode.FixedTime,
+                    _settings.FixedTime.GreenSeconds,
+                    _settings.FixedTime.YellowSeconds,
+                    utcNow),
+                "fixed-cycle",
+                latestMeasurement.QueueLength));
 
             state.MarkIssued(utcNow, intersection.Signals.Count);
         }

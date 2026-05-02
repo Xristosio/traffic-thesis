@@ -1,14 +1,22 @@
 using Traffic.Contracts.Messages;
+using Traffic.Contracts.Enums;
 
 namespace Traffic.Application.Policies;
 
 public interface ISignalDecisionCommandScheduler
 {
-    bool IsFixedTimeMode { get; }
+    PolicyMode? ActivePolicy { get; }
 
     string ConfiguredPolicyMode { get; }
 
-    TimeSpan PhaseDuration { get; }
+    string Description { get; }
 
-    IReadOnlyList<SignalDecisionCommand> GetDueCommands(DateTimeOffset utcNow);
+    IReadOnlyList<ScheduledSignalDecisionCommand> GetDueCommands(DateTimeOffset utcNow);
 }
+
+public sealed record ScheduledSignalDecisionCommand(
+    SignalDecisionCommand Command,
+    string Reason,
+    int SelectedQueueLength,
+    string? PreviousSignalId = null,
+    bool IsFairnessSwitch = false);
