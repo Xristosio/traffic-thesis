@@ -1,6 +1,16 @@
 @Traffic.Gateway.Api_HostAddress = http://localhost:5011
 
-GET {{Traffic.Gateway.Api_HostAddress}}/weatherforecast/
+GET {{Traffic.Gateway.Api_HostAddress}}/api/topology
+Accept: application/json
+
+###
+
+GET {{Traffic.Gateway.Api_HostAddress}}/api/signal-states
+Accept: application/json
+
+###
+
+GET {{Traffic.Gateway.Api_HostAddress}}/api/experiment-runs
 Accept: application/json
 
 ###
