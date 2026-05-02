@@ -138,6 +138,7 @@ public static class TrafficServiceCollectionExtensions
             options.UseNpgsql(settings.ConnectionString);
         });
 
+        services.AddSingleton<IExperimentRunRepository, ExperimentRunRepository>();
         services.AddSingleton<ITrafficMeasurementRepository, TrafficMeasurementRepository>();
         services.AddSingleton<ISignalDecisionCommandRepository, SignalDecisionCommandRepository>();
         services.AddSingleton<ISignalStateSnapshotRepository, SignalStateSnapshotRepository>();
