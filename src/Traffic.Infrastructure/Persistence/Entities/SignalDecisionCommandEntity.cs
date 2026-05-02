@@ -12,6 +12,10 @@ public sealed class SignalDecisionCommandEntity
 
     public string SelectedSignalId { get; set; } = string.Empty;
 
+    public string? SelectedPhaseId { get; set; }
+
+    public string SelectedSignalIdsJson { get; set; } = "[]";
+
     public string Policy { get; set; } = string.Empty;
 
     public int GreenDurationSeconds { get; set; }

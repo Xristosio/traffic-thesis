@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Traffic.Application.Persistence;
 using Traffic.Contracts.Messages;
@@ -21,6 +22,8 @@ public sealed class SignalDecisionCommandRepository(IDbContextFactory<TrafficDbC
             MessageId = command.MessageId,
             IntersectionId = command.IntersectionId,
             SelectedSignalId = command.SelectedSignalId,
+            SelectedPhaseId = command.SelectedPhaseId,
+            SelectedSignalIdsJson = JsonSerializer.Serialize(GetSelectedSignalIds(command)),
             Policy = command.Policy.ToString(),
             GreenDurationSeconds = command.GreenDurationSeconds,
             YellowDurationSeconds = command.YellowDurationSeconds,
@@ -28,5 +31,12 @@ public sealed class SignalDecisionCommandRepository(IDbContextFactory<TrafficDbC
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static IReadOnlyList<string> GetSelectedSignalIds(SignalDecisionCommand command)
+    {
+        return command.SelectedSignalIds.Count > 0
+            ? command.SelectedSignalIds
+            : [command.SelectedSignalId];
     }
 }

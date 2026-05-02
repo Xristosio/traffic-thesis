@@ -7,4 +7,6 @@ public sealed class IntersectionSettings
     public string? Name { get; set; }
 
     public List<SignalSettings> Signals { get; set; } = [];
+
+    public List<PhaseSettings> Phases { get; set; } = [];
 }

@@ -19,4 +19,5 @@ public sealed record ScheduledSignalDecisionCommand(
     string Reason,
     int SelectedQueueLength,
     string? PreviousSignalId = null,
-    bool IsFairnessSwitch = false);
+    bool IsFairnessSwitch = false,
+    string? PreviousPhaseId = null);

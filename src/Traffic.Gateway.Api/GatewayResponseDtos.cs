@@ -7,9 +7,15 @@ public sealed record TopologyResponse(IReadOnlyList<TopologyIntersectionResponse
 public sealed record TopologyIntersectionResponse(
     string IntersectionId,
     string? Name,
-    IReadOnlyList<TopologySignalResponse> Signals);
+    IReadOnlyList<TopologySignalResponse> Signals,
+    IReadOnlyList<TopologyPhaseResponse> Phases);
 
 public sealed record TopologySignalResponse(string SignalId, string? Name);
+
+public sealed record TopologyPhaseResponse(
+    string PhaseId,
+    string? Name,
+    IReadOnlyList<string> GreenSignalIds);
 
 public sealed record SignalStateResponse(
     string IntersectionId,

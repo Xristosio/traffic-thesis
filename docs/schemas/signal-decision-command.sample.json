@@ -4,6 +4,8 @@
   "schemaVersion": 1,
   "intersectionId": "I1",
   "selectedSignalId": "S2",
+  "selectedPhaseId": "P2",
+  "selectedSignalIds": ["S2", "S4"],
   "policy": "LongestQueueFirst",
   "greenDurationSeconds": 15,
   "yellowDurationSeconds": 3,

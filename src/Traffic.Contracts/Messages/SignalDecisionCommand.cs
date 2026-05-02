@@ -21,4 +21,11 @@ public sealed record SignalDecisionCommand(
     [property: JsonPropertyName("yellowDurationSeconds")]
     int YellowDurationSeconds,
     [property: JsonPropertyName("issuedAtUtc")]
-    DateTimeOffset IssuedAtUtc);
+    DateTimeOffset IssuedAtUtc)
+{
+    [JsonPropertyName("selectedPhaseId")]
+    public string? SelectedPhaseId { get; init; }
+
+    [JsonPropertyName("selectedSignalIds")]
+    public IReadOnlyList<string> SelectedSignalIds { get; init; } = [];
+}

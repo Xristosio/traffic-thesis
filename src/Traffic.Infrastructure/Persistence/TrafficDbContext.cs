@@ -84,6 +84,14 @@ public sealed class TrafficDbContext(DbContextOptions<TrafficDbContext> options)
             .HasColumnName("selected_signal_id")
             .HasMaxLength(64)
             .IsRequired();
+        entity.Property(command => command.SelectedPhaseId)
+            .HasColumnName("selected_phase_id")
+            .HasMaxLength(64);
+        entity.Property(command => command.SelectedSignalIdsJson)
+            .HasColumnName("selected_signal_ids_json")
+            .HasColumnType("text")
+            .HasDefaultValue("[]")
+            .IsRequired();
         entity.Property(command => command.Policy).HasColumnName("policy").HasMaxLength(64).IsRequired();
         entity.Property(command => command.GreenDurationSeconds).HasColumnName("green_duration_seconds");
         entity.Property(command => command.YellowDurationSeconds).HasColumnName("yellow_duration_seconds");
