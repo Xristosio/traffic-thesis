@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using Traffic.Application.Measurements;
 using Traffic.Application.Messaging;
 using Traffic.Application.Policies;
+using Traffic.Application.Persistence;
 using Traffic.Application.SignalStates;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
@@ -12,6 +14,8 @@ using Traffic.Contracts.Enums;
 using Traffic.Contracts.Messages;
 using Traffic.Domain.Topology;
 using Traffic.Infrastructure.Messaging;
+using Traffic.Infrastructure.Persistence;
+using Traffic.Infrastructure.Persistence.Repositories;
 
 namespace Traffic.Infrastructure.DependencyInjection;
 
@@ -120,6 +124,23 @@ public static class TrafficServiceCollectionExtensions
         services.AddSingleton<IMessageConsumer<SignalDecisionCommand>, KafkaSignalDecisionCommandConsumer>();
         services.AddSingleton<IMessageConsumer<TrafficMeasurement>, KafkaGatewayTrafficMeasurementConsumer>();
         services.AddSingleton<IMessagePublisher<SignalStateSnapshot>, KafkaSignalStateSnapshotPublisher>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficPersistence(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddDbContextFactory<TrafficDbContext>((serviceProvider, options) =>
+        {
+            var settings = serviceProvider.GetRequiredService<DatabaseSettings>();
+            options.UseNpgsql(settings.ConnectionString);
+        });
+
+        services.AddSingleton<ITrafficMeasurementRepository, TrafficMeasurementRepository>();
+        services.AddSingleton<ISignalDecisionCommandRepository, SignalDecisionCommandRepository>();
+        services.AddSingleton<ISignalStateSnapshotRepository, SignalStateSnapshotRepository>();
 
         return services;
     }
