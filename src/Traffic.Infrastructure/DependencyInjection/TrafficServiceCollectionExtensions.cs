@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Traffic.Application.Measurements;
+using Traffic.Application.Metrics;
 using Traffic.Application.Messaging;
 using Traffic.Application.Policies;
 using Traffic.Application.Persistence;
@@ -142,6 +143,7 @@ public static class TrafficServiceCollectionExtensions
         services.AddSingleton<ITrafficMeasurementRepository, TrafficMeasurementRepository>();
         services.AddSingleton<ISignalDecisionCommandRepository, SignalDecisionCommandRepository>();
         services.AddSingleton<ISignalStateSnapshotRepository, SignalStateSnapshotRepository>();
+        services.AddSingleton<IExperimentMetricsRepository, ExperimentMetricsRepository>();
 
         return services;
     }
