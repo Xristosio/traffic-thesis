@@ -1,4 +1,5 @@
 using Traffic.Contracts.Configuration;
+using Traffic.Contracts.Enums;
 using Traffic.Contracts.Messages;
 using Traffic.Domain.Simulation;
 using Traffic.Domain.Topology;
@@ -13,15 +14,21 @@ public sealed class ProducerSimulationService : IProducerSimulationService
     private readonly Random _random;
     private readonly SimulationSettings _settings;
     private readonly IReadOnlyList<SignalQueueState> _signalQueues;
+    private readonly IProducerSignalStateStore _signalStates;
 
-    public ProducerSimulationService(TrafficTopology topology, SimulationSettings settings)
+    public ProducerSimulationService(
+        TrafficTopology topology,
+        SimulationSettings settings,
+        IProducerSignalStateStore signalStates)
     {
         ArgumentNullException.ThrowIfNull(topology);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(signalStates);
 
         ValidateSettings(settings);
 
         _settings = settings;
+        _signalStates = signalStates;
         _random = settings.RandomSeed.HasValue
             ? new Random(settings.RandomSeed.Value)
             : new Random();
@@ -33,27 +40,33 @@ public sealed class ProducerSimulationService : IProducerSimulationService
 
     public Guid RunId { get; } = Guid.NewGuid();
 
-    public IReadOnlyList<TrafficMeasurement> GenerateMeasurements()
+    public IReadOnlyList<GeneratedTrafficMeasurement> GenerateMeasurements()
     {
-        var measurements = new List<TrafficMeasurement>(_signalQueues.Count);
+        var measurements = new List<GeneratedTrafficMeasurement>(_signalQueues.Count);
 
         foreach (var queue in _signalQueues)
         {
             var arrivals = GenerateArrivals();
-            const int departures = 0;
+            var signalState = _signalStates.GetSignalState(queue.IntersectionId, queue.SignalId);
+            var departures = CalculateDepartures(
+                signalState,
+                queue.CurrentQueueLength,
+                arrivals);
 
             queue.ApplyMeasurementDelta(arrivals, departures);
 
-            measurements.Add(new TrafficMeasurement(
-                Guid.NewGuid(),
-                RunId,
-                SchemaVersion,
-                queue.IntersectionId,
-                queue.SignalId,
-                queue.CurrentQueueLength,
-                arrivals,
-                departures,
-                DateTimeOffset.UtcNow));
+            measurements.Add(new GeneratedTrafficMeasurement(
+                new TrafficMeasurement(
+                    Guid.NewGuid(),
+                    RunId,
+                    SchemaVersion,
+                    queue.IntersectionId,
+                    queue.SignalId,
+                    queue.CurrentQueueLength,
+                    arrivals,
+                    departures,
+                    DateTimeOffset.UtcNow),
+                signalState));
         }
 
         return measurements;
@@ -62,6 +75,19 @@ public sealed class ProducerSimulationService : IProducerSimulationService
     private int GenerateArrivals()
     {
         return _random.Next(0, 4);
+    }
+
+    private int CalculateDepartures(
+        SignalState signalState,
+        int currentQueueLength,
+        int arrivals)
+    {
+        if (signalState is not SignalState.Green)
+        {
+            return 0;
+        }
+
+        return Math.Min(currentQueueLength + arrivals, _settings.DepartureRatePerTick);
     }
 
     private static void ValidateSettings(SimulationSettings settings)
@@ -81,6 +107,12 @@ public sealed class ProducerSimulationService : IProducerSimulationService
         {
             throw new NotSupportedException(
                 $"Simulation scenario '{settings.Scenario}' is not supported.");
+        }
+
+        if (settings.DepartureRatePerTick <= 0)
+        {
+            throw new InvalidOperationException(
+                "Simulation DepartureRatePerTick must be greater than zero.");
         }
     }
 }

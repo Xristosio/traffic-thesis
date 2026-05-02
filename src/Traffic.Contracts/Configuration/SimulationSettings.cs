@@ -9,4 +9,6 @@ public sealed class SimulationSettings
     public int? RandomSeed { get; set; }
 
     public string Scenario { get; set; } = string.Empty;
+
+    public int DepartureRatePerTick { get; set; }
 }
