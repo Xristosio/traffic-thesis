@@ -52,7 +52,9 @@ public static class TrafficServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<IProducerSignalStateStore, ProducerSignalStateStore>();
         services.AddSingleton<IProducerSimulationService, ProducerSimulationService>();
+        services.AddSingleton<IMessageConsumer<SignalStateSnapshot>, KafkaSignalStateSnapshotConsumer>();
 
         return services;
     }
