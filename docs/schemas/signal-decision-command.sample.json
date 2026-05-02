@@ -1,0 +1,11 @@
+{
+  "messageId": "5907ed4c-4100-4df1-97b3-35dc4fd482dc",
+  "runId": "4f38f9f1-14e5-4fc8-9b59-908c2339f6e1",
+  "schemaVersion": 1,
+  "intersectionId": "I1",
+  "selectedSignalId": "S2",
+  "policy": "LongestQueueFirst",
+  "greenDurationSeconds": 15,
+  "yellowDurationSeconds": 3,
+  "issuedAtUtc": "2026-05-02T13:00:01Z"
+}
