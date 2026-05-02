@@ -1,0 +1,11 @@
+{
+  "messageId": "6d9d6f43-0f95-4709-b3ea-738ba8497589",
+  "runId": "4f38f9f1-14e5-4fc8-9b59-908c2339f6e1",
+  "schemaVersion": 1,
+  "averageQueueLength": 8.4,
+  "maxQueueLength": 17,
+  "totalArrivals": 125,
+  "totalDepartures": 98,
+  "servedVehicles": 98,
+  "capturedAtUtc": "2026-05-02T13:00:05Z"
+}

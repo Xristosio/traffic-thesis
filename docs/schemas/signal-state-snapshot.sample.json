@@ -1,0 +1,27 @@
+{
+  "messageId": "2ad82696-3257-4b46-9f32-2ff0cdb7f54b",
+  "runId": "4f38f9f1-14e5-4fc8-9b59-908c2339f6e1",
+  "schemaVersion": 1,
+  "intersectionId": "I1",
+  "signals": [
+    {
+      "signalId": "S1",
+      "state": "Red",
+      "elapsedSeconds": 12,
+      "queueLength": 10
+    },
+    {
+      "signalId": "S2",
+      "state": "Green",
+      "elapsedSeconds": 4,
+      "queueLength": 3
+    },
+    {
+      "signalId": "S3",
+      "state": "Yellow",
+      "elapsedSeconds": 1,
+      "queueLength": 6
+    }
+  ],
+  "capturedAtUtc": "2026-05-02T13:00:02Z"
+}

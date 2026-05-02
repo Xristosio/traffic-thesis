@@ -1,0 +1,11 @@
+{
+  "messageId": "2f9f6b0a-6be2-4a57-8f2a-29b1e1975f18",
+  "runId": "4f38f9f1-14e5-4fc8-9b59-908c2339f6e1",
+  "schemaVersion": 1,
+  "intersectionId": "I1",
+  "signalId": "S1",
+  "queueLength": 12,
+  "arrivals": 5,
+  "departures": 3,
+  "measuredAtUtc": "2026-05-02T13:00:00Z"
+}
