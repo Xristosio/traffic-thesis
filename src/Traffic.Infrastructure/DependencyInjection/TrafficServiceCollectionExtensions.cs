@@ -92,6 +92,7 @@ public static class TrafficServiceCollectionExtensions
 
         services.AddSingleton<ISignalStateStore, SignalStateStore>();
         services.AddSingleton<IMessageConsumer<SignalDecisionCommand>, KafkaSignalDecisionCommandConsumer>();
+        services.AddSingleton<IMessageConsumer<TrafficMeasurement>, KafkaGatewayTrafficMeasurementConsumer>();
         services.AddSingleton<IMessagePublisher<SignalStateSnapshot>, KafkaSignalStateSnapshotPublisher>();
 
         return services;

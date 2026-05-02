@@ -11,17 +11,20 @@ public sealed class SignalControllerWorker : BackgroundService
 
     private readonly IMessageConsumer<SignalDecisionCommand> _commandConsumer;
     private readonly ILogger<SignalControllerWorker> _logger;
+    private readonly IMessageConsumer<TrafficMeasurement> _measurementConsumer;
     private readonly IMessagePublisher<SignalStateSnapshot> _snapshotPublisher;
     private readonly ISignalStateStore _stateStore;
 
     public SignalControllerWorker(
         ILogger<SignalControllerWorker> logger,
         IMessageConsumer<SignalDecisionCommand> commandConsumer,
+        IMessageConsumer<TrafficMeasurement> measurementConsumer,
         IMessagePublisher<SignalStateSnapshot> snapshotPublisher,
         ISignalStateStore stateStore)
     {
         _logger = logger;
         _commandConsumer = commandConsumer;
+        _measurementConsumer = measurementConsumer;
         _snapshotPublisher = snapshotPublisher;
         _stateStore = stateStore;
     }
@@ -31,13 +34,16 @@ public sealed class SignalControllerWorker : BackgroundService
         var consumeTask = Task.Run(
             () => ConsumeCommandsAsync(stoppingToken),
             stoppingToken);
+        var measurementTask = Task.Run(
+            () => ConsumeMeasurementsAsync(stoppingToken),
+            stoppingToken);
         var snapshotTask = Task.Run(
             () => PublishPeriodicSnapshotsAsync(stoppingToken),
             stoppingToken);
 
         try
         {
-            await Task.WhenAll(consumeTask, snapshotTask);
+            await Task.WhenAll(consumeTask, measurementTask, snapshotTask);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -84,6 +90,39 @@ public sealed class SignalControllerWorker : BackgroundService
                 GetGreenSignalId(snapshot));
 
             await _snapshotPublisher.PublishAsync(snapshot, stoppingToken);
+        }
+    }
+
+    private async Task ConsumeMeasurementsAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var measurement = await _measurementConsumer.ConsumeAsync(stoppingToken);
+            if (measurement is null)
+            {
+                continue;
+            }
+
+            var updated = _stateStore.UpdateQueueLength(
+                measurement.IntersectionId,
+                measurement.SignalId,
+                measurement.QueueLength);
+
+            if (!updated)
+            {
+                _logger.LogWarning(
+                    "Ignored queue update for unknown signal: intersection={IntersectionId} signal={SignalId} queue={QueueLength}",
+                    measurement.IntersectionId,
+                    measurement.SignalId,
+                    measurement.QueueLength);
+                continue;
+            }
+
+            _logger.LogInformation(
+                "Updated queue: intersection={IntersectionId} signal={SignalId} queue={QueueLength}",
+                measurement.IntersectionId,
+                measurement.SignalId,
+                measurement.QueueLength);
         }
     }
 

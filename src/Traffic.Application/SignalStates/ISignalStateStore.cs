@@ -6,6 +6,8 @@ public interface ISignalStateStore
 {
     SignalStateSnapshot Apply(SignalDecisionCommand command, DateTimeOffset utcNow);
 
+    bool UpdateQueueLength(string intersectionId, string signalId, int queueLength);
+
     IReadOnlyList<SignalStateSnapshot> GetSnapshots(DateTimeOffset utcNow);
 
     IReadOnlyList<SignalStateSnapshot> GetCurrentSnapshots(DateTimeOffset utcNow);
