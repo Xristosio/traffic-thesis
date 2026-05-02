@@ -219,6 +219,38 @@ Open the latest metrics:
 http://localhost:5011/api/experiment-runs/latest/metrics
 ```
 
+## Traffic scenarios
+
+Set the active scenario in `src/Traffic.Producer.Worker/appsettings.json`:
+
+```json
+{
+  "Simulation": {
+    "Scenario": "Balanced"
+  }
+}
+```
+
+Supported scenarios:
+
+- `Balanced`: each signal generates uniformly distributed arrivals from 0 to 3 vehicles per tick.
+- `Unbalanced`: the first configured signal in each intersection is treated as high traffic and generates 2 to 6 arrivals per tick; other signals generate 0 to 2 arrivals per tick.
+
+For an unbalanced experiment:
+
+```json
+{
+  "Simulation": {
+    "Scenario": "Unbalanced",
+    "RunDurationSeconds": 60,
+    "StopProducerAfterRun": true,
+    "ExperimentName": "Unbalanced-LQF-60s"
+  }
+}
+```
+
+Unknown scenario names fail at Producer startup with a clear error.
+
 ## Compare experiment runs
 
 Run one controlled experiment with `Policy:Mode` set to `FixedTime`, then mark it finished and note its run id from:

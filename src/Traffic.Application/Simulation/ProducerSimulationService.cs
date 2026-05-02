@@ -10,9 +10,11 @@ public sealed class ProducerSimulationService : IProducerSimulationService
 {
     private const int SchemaVersion = 1;
     private const string BalancedScenario = "Balanced";
+    private const string UnbalancedScenario = "Unbalanced";
 
     private readonly Random _random;
     private readonly SimulationSettings _settings;
+    private readonly HashSet<string> _highTrafficSignals;
     private readonly IReadOnlyList<SignalQueueState> _signalQueues;
     private readonly IProducerSignalStateStore _signalStates;
 
@@ -32,6 +34,12 @@ public sealed class ProducerSimulationService : IProducerSimulationService
         _random = settings.RandomSeed.HasValue
             ? new Random(settings.RandomSeed.Value)
             : new Random();
+        _highTrafficSignals = topology.Intersections
+            .Select(intersection => intersection.Signals.FirstOrDefault() is { } signal
+                ? GetSignalKey(intersection.Id, signal.Id)
+                : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         _signalQueues = topology.Intersections
             .SelectMany(intersection => intersection.Signals.Select(signal =>
                 new SignalQueueState(intersection.Id, signal.Id)))
@@ -46,7 +54,7 @@ public sealed class ProducerSimulationService : IProducerSimulationService
 
         foreach (var queue in _signalQueues)
         {
-            var arrivals = GenerateArrivals();
+            var arrivals = GenerateArrivals(queue);
             var signalState = _signalStates.GetSignalState(queue.IntersectionId, queue.SignalId);
             var departures = CalculateDepartures(
                 signalState,
@@ -72,9 +80,24 @@ public sealed class ProducerSimulationService : IProducerSimulationService
         return measurements;
     }
 
-    private int GenerateArrivals()
+    private int GenerateArrivals(SignalQueueState queue)
     {
-        return _random.Next(0, 4);
+        return _settings.Scenario.Trim() switch
+        {
+            var scenario when scenario.Equals(BalancedScenario, StringComparison.OrdinalIgnoreCase) =>
+                _random.Next(0, 4),
+            var scenario when scenario.Equals(UnbalancedScenario, StringComparison.OrdinalIgnoreCase) =>
+                GenerateUnbalancedArrivals(queue),
+            _ => throw new NotSupportedException(
+                $"Simulation scenario '{_settings.Scenario}' is not supported.")
+        };
+    }
+
+    private int GenerateUnbalancedArrivals(SignalQueueState queue)
+    {
+        return _highTrafficSignals.Contains(GetSignalKey(queue.IntersectionId, queue.SignalId))
+            ? _random.Next(2, 7)
+            : _random.Next(0, 3);
     }
 
     private int CalculateDepartures(
@@ -103,10 +126,10 @@ public sealed class ProducerSimulationService : IProducerSimulationService
             throw new InvalidOperationException("Simulation Scenario must be configured.");
         }
 
-        if (!settings.Scenario.Trim().Equals(BalancedScenario, StringComparison.OrdinalIgnoreCase))
+        if (!IsSupportedScenario(settings.Scenario))
         {
             throw new NotSupportedException(
-                $"Simulation scenario '{settings.Scenario}' is not supported.");
+                $"Simulation scenario '{settings.Scenario}' is not supported. Supported scenarios: {BalancedScenario}, {UnbalancedScenario}.");
         }
 
         if (settings.DepartureRatePerTick <= 0)
@@ -120,5 +143,16 @@ public sealed class ProducerSimulationService : IProducerSimulationService
             throw new InvalidOperationException(
                 "Simulation RunDurationSeconds must be null or greater than zero.");
         }
+    }
+
+    private static bool IsSupportedScenario(string scenario)
+    {
+        return scenario.Trim().Equals(BalancedScenario, StringComparison.OrdinalIgnoreCase)
+            || scenario.Trim().Equals(UnbalancedScenario, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetSignalKey(string intersectionId, string signalId)
+    {
+        return $"{intersectionId}:{signalId}";
     }
 }
