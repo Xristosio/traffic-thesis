@@ -40,4 +40,14 @@ public sealed class SignalRuntimeState
         ElapsedSeconds = elapsedSeconds;
         QueueLength = queueLength;
     }
+
+    public void UpdateQueueLength(int queueLength)
+    {
+        if (queueLength < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(queueLength), "Queue length cannot be negative.");
+        }
+
+        QueueLength = queueLength;
+    }
 }

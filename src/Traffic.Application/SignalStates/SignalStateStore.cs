@@ -55,6 +55,30 @@ public sealed class SignalStateStore : ISignalStateStore
         }
     }
 
+    public bool UpdateQueueLength(string intersectionId, string signalId, int queueLength)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(intersectionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(signalId);
+
+        lock (_syncRoot)
+        {
+            if (!_intersections.TryGetValue(intersectionId, out var intersection))
+            {
+                return false;
+            }
+
+            var signal = intersection.Signals.FirstOrDefault(signal =>
+                string.Equals(signal.SignalId, signalId, StringComparison.OrdinalIgnoreCase));
+            if (signal is null)
+            {
+                return false;
+            }
+
+            signal.UpdateQueueLength(queueLength);
+            return true;
+        }
+    }
+
     public IReadOnlyList<SignalStateSnapshot> GetSnapshots(DateTimeOffset utcNow)
     {
         lock (_syncRoot)
