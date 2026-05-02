@@ -27,6 +27,28 @@ dotnet build
 http://localhost:8085
 ```
 
+## Verify measurement publishing
+
+Start the local infrastructure:
+
+```bash
+docker compose up -d
+```
+
+Run `Traffic.Producer.Worker`, then open:
+
+```bash
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
+```
+
+Open Kafka UI:
+
+```
+http://localhost:8085
+```
+
+In Kafka UI, check the `traffic.measurements` topic for produced `TrafficMeasurement` JSON messages.
+
 ## PostgreSQL:
 
 ```
