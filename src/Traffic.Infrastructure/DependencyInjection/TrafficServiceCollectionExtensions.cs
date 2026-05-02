@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Traffic.Application.Measurements;
 using Traffic.Application.Messaging;
+using Traffic.Application.Policies;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
 using Traffic.Contracts.Configuration;
@@ -70,6 +71,16 @@ public static class TrafficServiceCollectionExtensions
 
         services.AddSingleton<ILatestMeasurementStore, LatestMeasurementStore>();
         services.AddSingleton<IMessageConsumer<TrafficMeasurement>, KafkaTrafficMeasurementConsumer>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficDecisionCommandPublishing(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<ISignalDecisionCommandScheduler, FixedTimeSignalDecisionCommandScheduler>();
+        services.AddSingleton<IMessagePublisher<SignalDecisionCommand>, KafkaSignalDecisionCommandPublisher>();
 
         return services;
     }

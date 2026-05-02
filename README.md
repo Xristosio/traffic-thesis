@@ -49,6 +49,34 @@ http://localhost:8085
 
 In Kafka UI, check the `traffic.measurements` topic for produced `TrafficMeasurement` JSON messages.
 
+## Verify Fixed-Time command publishing
+
+Start the local infrastructure:
+
+```bash
+docker compose up -d
+```
+
+Run `Traffic.Producer.Worker`:
+
+```bash
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
+```
+
+Run `Traffic.DecisionEngine.Worker` in another terminal:
+
+```bash
+dotnet run --project src/Traffic.DecisionEngine.Worker/Traffic.DecisionEngine.Worker.csproj
+```
+
+Open Kafka UI:
+
+```
+http://localhost:8085
+```
+
+In Kafka UI, check the `traffic.commands` topic for produced `SignalDecisionCommand` JSON messages.
+
 ## PostgreSQL:
 
 ```

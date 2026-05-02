@@ -20,6 +20,30 @@ public sealed class LatestMeasurementStore : ILatestMeasurementStore
         return _measurements.Values.ToArray();
     }
 
+    public bool TryGetLatestForIntersection(
+        string intersectionId,
+        out TrafficMeasurement measurement)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(intersectionId);
+
+        var latest = _measurements.Values
+            .Where(measurement => string.Equals(
+                measurement.IntersectionId,
+                intersectionId,
+                StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(measurement => measurement.MeasuredAtUtc)
+            .FirstOrDefault();
+
+        if (latest is null)
+        {
+            measurement = null!;
+            return false;
+        }
+
+        measurement = latest;
+        return true;
+    }
+
     private static string GetKey(string intersectionId, string signalId)
     {
         return $"{intersectionId}:{signalId}";
