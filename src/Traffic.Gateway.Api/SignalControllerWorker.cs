@@ -1,6 +1,7 @@
 using Traffic.Application.Messaging;
 using Traffic.Application.Persistence;
 using Traffic.Application.SignalStates;
+using Traffic.Contracts.Configuration;
 using Traffic.Contracts.Enums;
 using Traffic.Contracts.Messages;
 
@@ -8,13 +9,16 @@ namespace Traffic.Gateway.Api;
 
 public sealed class SignalControllerWorker : BackgroundService
 {
+    private const string UnknownPolicy = "Unknown";
     private static readonly TimeSpan SnapshotInterval = TimeSpan.FromSeconds(1);
 
     private readonly IMessageConsumer<SignalDecisionCommand> _commandConsumer;
     private readonly ISignalDecisionCommandRepository _commandRepository;
+    private readonly IExperimentRunRepository _experimentRunRepository;
     private readonly ILogger<SignalControllerWorker> _logger;
     private readonly IMessageConsumer<TrafficMeasurement> _measurementConsumer;
     private readonly ITrafficMeasurementRepository _measurementRepository;
+    private readonly SimulationSettings _simulationSettings;
     private readonly IMessagePublisher<SignalStateSnapshot> _snapshotPublisher;
     private readonly ISignalStateSnapshotRepository _snapshotRepository;
     private readonly ISignalStateStore _stateStore;
@@ -27,7 +31,9 @@ public sealed class SignalControllerWorker : BackgroundService
         ISignalStateStore stateStore,
         ISignalDecisionCommandRepository commandRepository,
         ITrafficMeasurementRepository measurementRepository,
-        ISignalStateSnapshotRepository snapshotRepository)
+        ISignalStateSnapshotRepository snapshotRepository,
+        IExperimentRunRepository experimentRunRepository,
+        SimulationSettings simulationSettings)
     {
         _logger = logger;
         _commandConsumer = commandConsumer;
@@ -37,6 +43,8 @@ public sealed class SignalControllerWorker : BackgroundService
         _commandRepository = commandRepository;
         _measurementRepository = measurementRepository;
         _snapshotRepository = snapshotRepository;
+        _experimentRunRepository = experimentRunRepository;
+        _simulationSettings = simulationSettings;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -168,6 +176,12 @@ public sealed class SignalControllerWorker : BackgroundService
     {
         try
         {
+            await EnsureExperimentRunStartedAsync(
+                measurement.RunId,
+                UnknownPolicy,
+                measurement.MeasuredAtUtc,
+                cancellationToken);
+
             await _measurementRepository.AddAsync(measurement, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -190,6 +204,12 @@ public sealed class SignalControllerWorker : BackgroundService
     {
         try
         {
+            await EnsureExperimentRunStartedAsync(
+                command.RunId,
+                command.Policy.ToString(),
+                command.IssuedAtUtc,
+                cancellationToken);
+
             await _commandRepository.AddAsync(command, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -212,6 +232,12 @@ public sealed class SignalControllerWorker : BackgroundService
     {
         try
         {
+            await EnsureExperimentRunStartedAsync(
+                snapshot.RunId,
+                UnknownPolicy,
+                snapshot.CapturedAtUtc,
+                cancellationToken);
+
             await _snapshotRepository.AddAsync(snapshot, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -224,6 +250,40 @@ public sealed class SignalControllerWorker : BackgroundService
                 "Failed to persist SignalStateSnapshot: messageId={MessageId} intersection={IntersectionId}",
                 snapshot.MessageId,
                 snapshot.IntersectionId);
+        }
+    }
+
+    private async Task EnsureExperimentRunStartedAsync(
+        Guid runId,
+        string policy,
+        DateTimeOffset startedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (runId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            await _experimentRunRepository.EnsureStartedAsync(
+                runId,
+                policy,
+                _simulationSettings.Scenario,
+                startedAtUtc,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to ensure ExperimentRun: runId={RunId} policy={Policy} scenario={Scenario}",
+                runId,
+                policy,
+                _simulationSettings.Scenario);
         }
     }
 

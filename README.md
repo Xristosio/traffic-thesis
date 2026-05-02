@@ -180,6 +180,7 @@ docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "\dt"
 docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from traffic_measurements;"
 docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from signal_decision_commands;"
 docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select count(*) from signal_state_snapshots;"
+docker exec -it traffic-postgres psql -U postgres -d traffic_thesis -c "select * from experiment_runs order by started_at_utc desc;"
 ```
 
 ## Configuration
