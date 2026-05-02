@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Traffic.Producer.Worker-19aceb72-7904-44f8-99c3-b31a6503081f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Traffic.Application\Traffic.Application.csproj" />
+    <ProjectReference Include="..\Traffic.Infrastructure\Traffic.Infrastructure.csproj" />
+    <ProjectReference Include="..\Traffic.Contracts\Traffic.Contracts.csproj" />
+  </ItemGroup>
+</Project>
