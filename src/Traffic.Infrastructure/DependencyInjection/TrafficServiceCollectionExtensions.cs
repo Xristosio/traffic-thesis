@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
 using Traffic.Contracts.Configuration;
 using Traffic.Domain.Topology;
@@ -37,6 +38,15 @@ public static class TrafficServiceCollectionExtensions
 
             return builder.Build(settings);
         });
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficProducerSimulation(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<IProducerSimulationService, ProducerSimulationService>();
 
         return services;
     }
