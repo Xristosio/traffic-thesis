@@ -7,4 +7,6 @@ public sealed class KafkaSettings
     public string BootstrapServers { get; set; } = string.Empty;
 
     public KafkaTopicsSettings Topics { get; set; } = new();
+
+    public KafkaConsumerGroupsSettings ConsumerGroups { get; set; } = new();
 }

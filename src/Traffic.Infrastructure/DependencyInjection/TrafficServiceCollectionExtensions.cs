@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Traffic.Application.Measurements;
 using Traffic.Application.Messaging;
 using Traffic.Application.Simulation;
 using Traffic.Application.Topology;
@@ -59,6 +60,16 @@ public static class TrafficServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IMessagePublisher<TrafficMeasurement>, KafkaTrafficMeasurementPublisher>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTrafficMeasurementConsuming(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<ILatestMeasurementStore, LatestMeasurementStore>();
+        services.AddSingleton<IMessageConsumer<TrafficMeasurement>, KafkaTrafficMeasurementConsumer>();
 
         return services;
     }
