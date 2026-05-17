@@ -1,6 +1,19 @@
-# Traffic Thesis
+# Dynamic Traffic Signal Control
 
-Dynamic traffic light management simulation using .NET, Apache Kafka and PostgreSQL.
+This repository contains the implementation of a thesis project for dynamic traffic signal control using an event-driven architecture.
+
+The system simulates traffic measurements, publishes them through Apache Kafka, applies configurable signal control policies in a .NET Decision Engine, and stores experiment data in PostgreSQL for evaluation. It supports configurable intersections, signal phases, closed-loop queue simulation, controlled experiment runs, and comparison of Fixed-Time and Longest-Queue-First policies.
+
+## Technology Stack
+
+- .NET 10
+- C#
+- Apache Kafka
+- Kafka UI
+- PostgreSQL
+- Entity Framework Core
+- Docker / Docker Compose
+- ASP.NET Core Web API
 
 ## Services
 
@@ -8,17 +21,35 @@ Dynamic traffic light management simulation using .NET, Apache Kafka and Postgre
 - Traffic.DecisionEngine.Worker
 - Traffic.Gateway.Api
 
-## Infrastructure
+## Prerequisites
 
-- Apache Kafka
-- Kafka UI
-- PostgreSQL
+- .NET 10 SDK
+- Docker Desktop
+- Git
+- Optional: pgAdmin or another PostgreSQL client
 
-## Local startup
+## Recommended Startup Order
 
 ```bash
 docker compose up -d
 dotnet build
+```
+
+Open three terminals:
+
+### Terminal 1 — Gateway API
+
+```bash
+dotnet run --project src/Traffic.Gateway.Api/Traffic.Gateway.Api.csproj
+```
+### Terminal 2 — Decision Engine
+```
+dotnet run --project src/Traffic.DecisionEngine.Worker/Traffic.DecisionEngine.Worker.csproj
+```
+
+### Terminal 3 — Producer
+```
+dotnet run --project src/Traffic.Producer.Worker/Traffic.Producer.Worker.csproj
 ```
 
 ## Kafka UI:
@@ -26,6 +57,81 @@ dotnet build
 ```
 http://localhost:8085
 ```
+
+## Architecture Overview
+
+```
+Traffic.Producer.Worker
+  → Kafka topic: traffic.measurements
+  → Traffic.DecisionEngine.Worker
+  → Kafka topic: traffic.commands
+  → Traffic.Gateway.Api
+  → Kafka topic: traffic.state
+  → Traffic.Producer.Worker
+```
+
+- Producer generates synthetic traffic measurements.
+- Decision Engine consumes measurements and applies the selected policy.
+- Gateway applies signal commands, exposes API endpoints and persists experiment data.
+- PostgreSQL stores measurements, decisions, signal states and experiment runs.
+
+## Features
+
+- Configurable traffic topology with multiple intersections.
+- Mandatory phase-based signal control.
+- Support for multiple green signals per non-conflicting phase.
+- Fixed-Time policy.
+- Longest-Queue-First policy.
+- Balanced and Unbalanced traffic scenarios.
+- Closed-loop simulation using signal state feedback.
+- Kafka-based event flow.
+- PostgreSQL persistence with EF Core.
+- Controlled experiment execution.
+- Metrics aggregation and policy comparison endpoints.
+
+## Project Structure
+
+```
+src/
+  Traffic.Contracts
+  Traffic.Domain
+  Traffic.Application
+  Traffic.Infrastructure
+  Traffic.Producer.Worker
+  Traffic.DecisionEngine.Worker
+  Traffic.Gateway.Api
+```
+
+- `Traffic.Contracts`: shared Kafka/API message contracts and configuration models.
+- `Traffic.Domain`: topology and domain models.
+- `Traffic.Application`: application services, policies and abstractions.
+- `Traffic.Infrastructure`: Kafka, PostgreSQL and EF Core implementations.
+- `Traffic.Producer.Worker`: synthetic traffic data producer.
+- `Traffic.DecisionEngine.Worker`: policy execution and command publishing.
+- `Traffic.Gateway.Api`: signal state simulation, persistence and API endpoints.
+
+## Kafka Topics
+
+| Topic | Produced by | Consumed by | Purpose |
+|---|---|---|---|
+| `traffic.measurements` | Producer | Decision Engine, Gateway | Traffic queue measurements |
+| `traffic.commands` | Decision Engine | Gateway | Signal control commands |
+| `traffic.state` | Gateway | Producer | Current signal states |
+| `traffic.metrics` | Reserved | Reserved | Future metrics stream |
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/topology` | Returns configured intersections, signals and phases |
+| GET | `/api/signal-states` | Returns current signal states |
+| GET | `/api/signal-states/{intersectionId}` | Returns signal states for one intersection |
+| GET | `/api/experiment-runs` | Lists experiment runs |
+| GET | `/api/experiment-runs/{runId}/metrics` | Returns metrics for a run |
+| GET | `/api/experiment-runs/latest/metrics` | Returns metrics for the latest run |
+| POST | `/api/experiment-runs/{runId}/finish` | Marks a run as finished |
+| POST | `/api/experiment-runs/latest/finish` | Marks the latest run as finished |
+| GET | `/api/experiment-runs/compare` | Compares two experiment runs |
 
 ## Verify measurement publishing
 
